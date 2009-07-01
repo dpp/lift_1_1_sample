@@ -8,16 +8,21 @@
 package com.liftcode.lib
 
 import net.liftweb._
+import http._
+import SHtml._
+import js._
+import JsCmds._
+import JE._
 import mapper._
 import sitemap._
 import Loc._
-
+import util._
+import Helpers._
+import net.liftweb.http.js.jquery._
 import model._
 
-/**
- * The WikiStuff object that provides menu, URL rewriting,
- * and snippet support for the page that displays wiki contents
- */
+import scala.xml._
+
 object CMSLoc extends Loc[Content] {
 
   // the name of the page
@@ -35,6 +40,7 @@ object CMSLoc extends Loc[Content] {
    */
   override val snippets: SnippetTest = {
     case ("cms", Full(wp)) => displayRecord(wp) _
+    case ("edit_button", Full(wp)) => doEditButton(wp) _
   }
 
 
@@ -54,82 +60,54 @@ object CMSLoc extends Loc[Content] {
   val text = new Loc.LinkText(calcLinkText _)
 
 
-  def calcLinkText(in: Content): NodeSeq =
-  Text("Page "+in.name)
+  def calcLinkText(in: Content): NodeSeq = Text("Page "+in.name)
 
   /**
    * Rewrite the request and emit the type-safe parameter
    */
   override val rewrite: LocRewrite =
   Full(NamedPF("CMS Rewrite") {
-      case RewriteRequest(ParsePath("cms" :: page :: Nil, _, _,_),
-                          _, _) =>
-        (RewriteResponse("cms" :: Nil), WikiLoc(page, false))
-
+      case RewriteRequest(ParsePath("cms" :: Content(page) :: Nil, _, _,_),  _, _) =>
+        (RewriteResponse("cms" :: Nil), page)
     })
 
-  def showAll(in: NodeSeq): NodeSeq =
-  WikiEntry.findAll(OrderBy(WikiEntry.name, Ascending)).flatMap(entry =>
-    <div><a href={url(entry.name)}>{entry.name}</a></div>)
 
-  def url(page: String) = createLink(WikiLoc(page, false))
+  //  def url(page: String) = createLink(WikiLoc(page, false))
 
+  def displayRecord(entry: Content)(in: NodeSeq): NodeSeq =
+  <span id="content">
+    {entry.contentHTML}
+  </span>
 
-  def editRecord(r: WikiEntry)(in: NodeSeq): NodeSeq =
-  <span>
-    <a href={createLink(AllLoc)}>Show All Pages</a><br />
-    {
-      val isNew = !r.saved_?
-      val pageName = r.name.is
-      val action = url(pageName)
-      val message =
-      if (isNew)
-      Text("Create Entry named "+pageName)
-      else
-      Text("Edit entry named "+pageName)
+  def doEditButton(entry: Content)(in: NodeSeq): NodeSeq = {
+    var current = entry
 
-      val hobixLink = <span>&nbsp;<a href="http://hobix.com/textile/quick.html" target="_blank">Textile Markup Reference</a><br /></span>
+    def editInfo(ignore: String): JsCmd = {
+      var text = current.content.is
 
-      val cancelLink = <a href={action}>Cancel</a>
-      val textarea = r.entry.toForm
-
-      val submitButton = SHtml.submit(isNew ? "Add" | "Edit", () => r.save)
-
-      <form method="post" action={action}>{ // the form tag
-          message ++
-          hobixLink ++
-          textarea ++ // display the form
-          <br /> ++
-          cancelLink ++
-          Text(" ") ++
-          submitButton
-        }</form>
+      JqJsCmds.ModalDialog(bind("cms",
+                                TemplateFinder.findAnyTemplate(List("_modal_editor")) openOr NodeSeq.Empty,
+                                "text_area" -> textarea(text, ignore => (), "rows" -> "20", "cols" -> "100", "id" -> "new_content"),
+                                AttrBindParam("preview_click",ajaxCall(ValById("new_content"),
+                                                                       str => {text = str
+                                                                               SetHtml("content", Content.create.content(str).contentHTML)
+              })._2,"onclick"),
+                                AttrBindParam("cancel_click",ajaxCall("",
+                                                                       str => {
+                                                                               SetHtml("content", current.contentHTML) & JqJsCmds.Unblock
+              })._2,"onclick"),
+                                AttrBindParam("save_click",ajaxCall(ValById("new_content"),
+                                                                       str => {current.content(str).saveMe
+                                                                               SetHtml("content", current.contentHTML) & JqJsCmds.Unblock
+              })._2,"onclick")
+        ))
     }
 
-  </span>
-
-  def displayRecord(entry: WikiEntry)(in: NodeSeq): NodeSeq =
-  <span>
-    <a href={createLink(AllLoc)}>Show All Pages</a><br />
-    {TextileParser.toHtml(entry.entry, textileWriter)}
-
-    <br/><a href={createLink(WikiLoc(entry.name, true))}>Edit</a>
-  </span>
-
-  import TextileParser._
-
-  val textileWriter = Some((info: WikiURLInfo) =>
-    info match {
-      case WikiURLInfo(page, _) =>
-        (stringUrl(page), Text(page), None)
-    })
-
-  def stringUrl(page: String): String =
-  url(page).map(_.text) getOrElse ""
+    val foo = SHtml.ajaxCall("", editInfo _)._2
 
 
-}
-
-object CMSLib {
+    bind("cms", in,
+         AttrBindParam("onclick", foo, "onclick"))
+  }
 
 }

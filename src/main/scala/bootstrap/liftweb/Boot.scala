@@ -10,6 +10,8 @@ import _root_.java.sql.{Connection, DriverManager}
 import _root_.com.liftcode.model._
 import _root_.javax.servlet.http.{HttpServletRequest}
 
+import com.liftcode.lib._
+
 /**
   * A class that's instantiated early and run.  It allows the application
   * to modify lift's environment
@@ -21,10 +23,12 @@ class Boot {
 
     // where to search snippet
     LiftRules.addToPackages("com.liftcode")
-    Schemifier.schemify(true, Log.infoF _, User)
+    Schemifier.schemify(true, Log.infoF _, User, Content)
 
     // Build SiteMap
-    val entries = Menu(Loc("Home", List("index"), "Home")) :: User.sitemap
+    val entries = Menu(Loc("Home", List("index"), "Home")) ::
+    Menu(CMSLoc) ::
+    User.sitemap
     LiftRules.setSiteMap(SiteMap(entries:_*))
 
     /*
