@@ -11,33 +11,33 @@ import _root_.com.liftcode.model._
 import _root_.javax.servlet.http.{HttpServletRequest}
 
 /**
-  * A class that's instantiated early and run.  It allows the application
-  * to modify lift's environment
-  */
+ * A class that's instantiated early and run.  It allows the application
+ * to modify lift's environment
+ */
 class Boot {
   def boot {
     if (!DB.jndiJdbcConnAvailable_?)
-      DB.defineConnectionManager(DefaultConnectionIdentifier, DBVendor)
+    DB.defineConnectionManager(DefaultConnectionIdentifier, DBVendor)
 
     // where to search snippet
     LiftRules.addToPackages("com.liftcode")
-    Schemifier.schemify(true, Log.infoF _, User)
+    Schemifier.schemify(true, Log.infoF _, User, Dog)
 
     // Build SiteMap
-    val entries = Menu(Loc("Home", List("index"), "Home")) :: User.sitemap
+    val entries = Menu(Loc("Home", List("index"), "Home")) :: User.sitemap ::: Dog.menus
     LiftRules.setSiteMap(SiteMap(entries:_*))
 
     /*
      * Show the spinny image when an Ajax call starts
      */
     LiftRules.ajaxStart =
-      Full(() => LiftRules.jsArtifacts.show("ajax-loader").cmd)
+    Full(() => LiftRules.jsArtifacts.show("ajax-loader").cmd)
 
     /*
      * Make the spinny image go away when it ends
      */
     LiftRules.ajaxEnd =
-      Full(() => LiftRules.jsArtifacts.hide("ajax-loader").cmd)
+    Full(() => LiftRules.jsArtifacts.hide("ajax-loader").cmd)
 
     LiftRules.early.append(makeUtf8)
 
@@ -56,8 +56,8 @@ class Boot {
 }
 
 /**
-* Database connection calculation
-*/
+ * Database connection calculation
+ */
 object DBVendor extends ConnectionManager {
   private var pool: List[Connection] = Nil
   private var poolSize = 0
@@ -74,7 +74,7 @@ object DBVendor extends ConnectionManager {
 
     val dm = (Props.get("db.user"), Props.get("db.password")) match {
       case (Full(user), Full(pwd)) =>
-	DriverManager.getConnection(dbUrl, user, pwd)
+        DriverManager.getConnection(dbUrl, user, pwd)
 
       case _ => DriverManager.getConnection(dbUrl)
     }
@@ -85,30 +85,30 @@ object DBVendor extends ConnectionManager {
   }
 
   def newConnection(name: ConnectionIdentifier): Box[Connection] =
-    synchronized {
-      pool match {
-	case Nil if poolSize < maxPoolSize =>
-	  val ret = createOne
+  synchronized {
+    pool match {
+      case Nil if poolSize < maxPoolSize =>
+        val ret = createOne
         poolSize = poolSize + 1
         ret.foreach(c => pool = c :: pool)
         ret
 
-	case Nil => wait(1000L); newConnection(name)
-	case x :: xs => try {
+      case Nil => wait(1000L); newConnection(name)
+      case x :: xs => try {
           x.setAutoCommit(false)
           Full(x)
         } catch {
           case e => try {
-            pool = xs
-            poolSize = poolSize - 1
-            x.close
-            newConnection(name)
-          } catch {
-            case e => newConnection(name)
-          }
+              pool = xs
+              poolSize = poolSize - 1
+              x.close
+              newConnection(name)
+            } catch {
+              case e => newConnection(name)
+            }
         }
-      }
     }
+  }
 
   def releaseConnection(conn: Connection): Unit = synchronized {
     pool = conn :: pool
