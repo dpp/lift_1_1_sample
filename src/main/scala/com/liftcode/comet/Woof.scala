@@ -19,6 +19,10 @@ class Woof extends CometActor with CometListener {
   def render = <div>Dog: {dog.map(_.toString) openOr "None"}</div>
 
   def registerWith = DogBroker
+  
+  def foo = for {
+    i <- List("one", "twi")
+  } yield i.length
 
   override def highPriority = {
     case Full(d: Dog) =>

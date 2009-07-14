@@ -1,6 +1,6 @@
 package bootstrap.liftweb
 
-import _root_.net.liftweb.util._
+import net.liftweb.util._
 import _root_.net.liftweb.http._
 import _root_.net.liftweb.sitemap._
 import _root_.net.liftweb.sitemap.Loc._
@@ -24,7 +24,9 @@ class Boot {
     Schemifier.schemify(true, Log.infoF _, User, Dog)
 
     // Build SiteMap
-    val entries = Menu(Loc("Home", List("index"), "Home")) :: User.sitemap ::: Dog.menus
+    val entries = Menu(Loc("Home", List("index"), "Home")) ::
+    Menu(Loc("Static", Link(List("static"), true, "/static/index"), "Static")) ::
+    User.sitemap ::: Dog.menus
     LiftRules.setSiteMap(SiteMap(entries:_*))
 
     /*

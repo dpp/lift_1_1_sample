@@ -18,7 +18,9 @@ class Dog extends LongKeyedMapper[Dog] with IdPK {
   def getSingleton = Dog
 
   object name extends MappedPoliteString(this, 128)
-  object weight extends MappedInt(this)
+  object weight extends MappedInt(this) {
+    def gooo = ""
+  }
 }
 
 object Dog extends Dog with LongKeyedMetaMapper[Dog] with CRUDify[Long, Dog] {
